@@ -25,6 +25,7 @@ Julian day (JD)
 from __future__ import annotations
 
 import os
+import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import StrEnum
@@ -143,17 +144,24 @@ class Position:
 
 # ---------------------------------------------------------------- setup & time
 
-_initialised_path: str | None = None
+# The Swiss Ephemeris C library keeps its configuration (ephemeris path,
+# sidereal mode) in *thread-local* globals, so each thread must initialise it.
+# FastAPI's threadpool, background tasks and APScheduler all call in from
+# different threads. Calls are also serialised under a lock, because the
+# library's file handles and caches were not designed for concurrent use.
+_thread_state = threading.local()
+_LOCK = threading.RLock()
 
 
 def _ensure_init() -> None:
-    global _initialised_path
     path = os.path.abspath(get_settings().skycal_ephe_path)
-    if _initialised_path != path:
+    if getattr(_thread_state, "path", None) == path:
+        return
+    with _LOCK:
         swe.set_ephe_path(path)
         # Lahiri (a.k.a. Chitrapaksha) ayanamsa, the Indian government standard.
         swe.set_sid_mode(swe.SIDM_LAHIRI)
-        _initialised_path = path
+        _thread_state.path = path
 
 
 JD_UNIX_EPOCH = 2440587.5  # JD (UT) of 1970-01-01 00:00 UTC
@@ -194,13 +202,15 @@ def position(point: Point, jd: float, sidereal: bool = False) -> Position:
     except KeyError:
         raise ValueError(f"{point} is not a body; use houses() for ASC/MC") from None
     try:
-        values, retflag = swe.calc_ut(jd, swe_id, _flags(sidereal))
+        with _LOCK:
+            values, retflag = swe.calc_ut(jd, swe_id, _flags(sidereal))
     except swe.Error as exc:  # e.g. seas_18.se1 missing for Chiron
         raise EphemerisFilesMissing(
             f"{exc}. Run `uv run python scripts/fetch_ephemeris.py`."
         ) from exc
     if swe_id not in (swe.TRUE_NODE, swe.MEAN_APOG) and not retflag & swe.FLG_SWIEPH:
         raise EphemerisFilesMissing(
+            f"{point} @ {jd}: retflag={retflag}. "
             f"Swiss Ephemeris files not found in {get_settings().skycal_ephe_path!r} "
             "(fell back to Moshier). Run `uv run python scripts/fetch_ephemeris.py`."
         )
@@ -222,8 +232,9 @@ def ayanamsa(jd: float) -> float:
     sidereal longitudes. It is also the convention of the published Lahiri
     tables (23°15'00.658" on 1956-03-21, 23°51'11" on 2000-01-01).
     """
-    _ensure_init()
-    _flag, value = swe.get_ayanamsa_ex_ut(jd, swe.FLG_SWIEPH)
+    with _LOCK:
+        _ensure_init()
+        _flag, value = swe.get_ayanamsa_ex_ut(jd, swe.FLG_SWIEPH)
     return value
 
 
@@ -243,9 +254,12 @@ def houses(jd: float, lat: float, lon: float, hsys: str, sidereal: bool) -> Hous
 
     `hsys`: 'P' Placidus (Western), 'W' whole-sign (Vedic), 'O' Porphyry (fallback).
     """
-    _ensure_init()
     flags = swe.FLG_SIDEREAL if sidereal else 0
-    cusps, ascmc, cusp_speeds, ascmc_speeds = swe.houses_ex2(jd, lat, lon, hsys.encode(), flags)
+    with _LOCK:
+        _ensure_init()
+        cusps, ascmc, _cusp_speeds, ascmc_speeds = swe.houses_ex2(
+            jd, lat, lon, hsys.encode(), flags
+        )
     return HouseResult(
         system=hsys,
         cusps=tuple(c % 360.0 for c in cusps[:12]),

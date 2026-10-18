@@ -37,6 +37,7 @@ def migrate(url: str | None = None) -> None:
     from alembic.config import Config
 
     cfg = Config(str(REPO_ROOT / "alembic.ini"))
+    cfg.attributes["configure_logger"] = False  # keep the app's logging setup
     cfg.set_main_option("script_location", str(Path(__file__).parent / "migrations"))
     cfg.set_main_option("sqlalchemy.url", url or get_settings().database_url)
     command.upgrade(cfg, "head")

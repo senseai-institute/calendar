@@ -118,3 +118,13 @@ def test_graha_drishti():
     assert graha_aspects(5, Point.SATURN, 275) == [10]
     assert graha_aspects(5, Point.SATURN, 125) == []
     assert graha_aspects(5, Point.VENUS, 25) == [1]
+
+
+def test_ephemeris_works_from_fresh_threads():
+    """swisseph config is thread-local; every thread must get the ephemeris path."""
+    from concurrent.futures import ThreadPoolExecutor
+
+    jds = [2448088.0 + i * 0.37 for i in range(40)]
+    with ThreadPoolExecutor(max_workers=8) as pool:
+        lons = list(pool.map(lambda jd: eph.position(Point.CHIRON, jd).longitude, jds))
+    assert all(0 <= x < 360 for x in lons)
