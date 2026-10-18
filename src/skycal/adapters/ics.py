@@ -52,18 +52,26 @@ def _aspect_label(aspect: str | None) -> str:
     return aspect
 
 
-def _fmt_day(dt: datetime) -> str:
-    return f"{dt:%b} {dt.day}"
+def _fmt_day(dt: datetime, today: date | None = None) -> str:
+    """ "Nov 4"; with the year when it isn't the current one ("Jun 9 2025")."""
+    today = today or datetime.now(dt.tzinfo).date()
+    return f"{dt:%b} {dt.day}" + ("" if dt.year == today.year else f" {dt.year}")
 
 
-def event_title(ev: Event, tz: ZoneInfo) -> str:
+def _aspect_words(aspect: str | None) -> str:
+    if aspect and aspect.startswith("drishti_"):
+        return f"{_ordinal(int(aspect.removeprefix('drishti_')))}-house aspect (graha drishti)"
+    return aspect or ""
+
+
+def event_title(ev: Event, tz: ZoneInfo, today: date | None = None) -> str:
     """e.g. "♄ Saturn □ natal Sun (exact Nov 4)"."""
     t = _point_label(ev.transiting_point, ev.system)
     glyph = GLYPHS.get(Point(ev.transiting_point), "") if ev.transiting_point else ""
     n = _point_label(ev.natal_point, ev.system)
     when = ev.exact or ev.start
     label = "exact" if ev.meta.get("perfected", True) else "closest"
-    paren = [f"{label} {_fmt_day(when.astimezone(tz))}"]
+    paren = [f"{label} {_fmt_day(when.astimezone(tz), today)}"]
     if ev.meta.get("passes", 1) > 1:
         paren.append(f"pass {ev.meta['pass']}/{ev.meta['passes']}")
     if ev.system == System.vedic:
@@ -83,7 +91,8 @@ def event_description(ev: Event, tz: ZoneInfo) -> str:
     lines = [
         f"Technique: {ev.technique}",
         f"System: {system}",
-        f"Transiting {ev.transiting_point} {ev.aspect} natal {ev.natal_point}",
+        f"Transiting {_point_label(ev.transiting_point, ev.system)} {_aspect_words(ev.aspect)} "
+        f"natal {_point_label(ev.natal_point, ev.system)}",
         f"Tier: {ev.tier}",
         f"Starts: {full(ev.start)}",
     ]

@@ -8,6 +8,7 @@ from skycal.adapters.ics import event_title, render_ics
 from skycal.db.models import Event
 
 NY = ZoneInfo("America/New_York")
+TODAY = date(2026, 10, 18)
 
 
 def utc(*a) -> datetime:
@@ -38,22 +39,31 @@ def ev(tier, start, exact, end, **kw) -> Event:
 
 def test_title_format():
     e = ev(2, utc(2026, 10, 1), utc(2026, 11, 4, 15), utc(2026, 12, 1))
-    assert event_title(e, NY) == "♄ Saturn □ natal Sun (exact Nov 4)"
+    assert event_title(e, NY, today=TODAY) == "♄ Saturn □ natal Sun (exact Nov 4)"
     e.meta = {**e.meta, "pass": 2, "passes": 3}
-    assert event_title(e, NY) == "♄ Saturn □ natal Sun (exact Nov 4, pass 2/3)"
+    assert event_title(e, NY, today=TODAY) == "♄ Saturn □ natal Sun (exact Nov 4, pass 2/3)"
     v = ev(
         1, utc(2026, 10, 1), utc(2026, 11, 4, 15), utc(2026, 12, 1),
         system="vedic", transiting_point="North Node", aspect="drishti_5", natal_point="Moon",
     )  # fmt: skip
-    assert event_title(v, NY) == "☊ Rahu 5th-house aspect → natal Moon (Vedic, exact Nov 4)"
+    assert (
+        event_title(v, NY, today=TODAY)
+        == "☊ Rahu 5th-house aspect → natal Moon (Vedic, exact Nov 4)"
+    )
     e.meta = {**e.meta, "perfected": False, "passes": 1}
-    assert event_title(e, NY) == "♄ Saturn □ natal Sun (closest Nov 4)"
+    assert event_title(e, NY, today=TODAY) == "♄ Saturn □ natal Sun (closest Nov 4)"
+
+
+def test_title_shows_year_outside_current_year():
+    e = ev(1, utc(2025, 5, 1), utc(2025, 6, 9, 15), utc(2026, 11, 25))
+    assert event_title(e, NY, today=date(2026, 10, 18)).endswith("(exact Jun 9 2025)")
+    assert event_title(e, NY, today=date(2025, 1, 1)).endswith("(exact Jun 9)")
 
 
 def test_exact_date_uses_feed_timezone():
     # 02:30 UTC on Nov 5 is still Nov 4 in New York
     e = ev(3, utc(2026, 11, 3), utc(2026, 11, 5, 2, 30), utc(2026, 11, 6), transiting_point="Mars")
-    assert event_title(e, NY).endswith("(exact Nov 4)")
+    assert event_title(e, NY, today=TODAY).endswith("(exact Nov 4)")
 
 
 def test_layout_by_tier_and_roundtrip():

@@ -114,6 +114,7 @@ class User(SQLModel, table=True):
 class Entity(SQLModel, table=True):
     """A person or pet with a birth moment. The thing charts and events hang off."""
 
+    __tablename__ = "entity"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     owner_user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
     kind: str = Field(default=EntityKind.person)
@@ -136,6 +137,7 @@ class Chart(SQLModel, table=True):
     return moment for returns, the progressed date for progressions.
     """
 
+    __tablename__ = "chart"
     __table_args__ = (Index("ix_chart_entity_system_kind", "entity_id", "system", "kind"),)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -155,6 +157,7 @@ class Chart(SQLModel, table=True):
 class Relationship(SQLModel, table=True):
     """Two entities considered together (synastry / composite charts). Phase 4."""
 
+    __tablename__ = "relationship"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     owner_user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
     entity_a_id: uuid.UUID = Field(foreign_key="entity.id")
@@ -174,6 +177,7 @@ class Event(SQLModel, table=True):
                 update an event rather than duplicating it.
     """
 
+    __tablename__ = "event"
     __table_args__ = (
         Index("ix_event_entity_start_end_tier", "entity_id", "start", "end", "tier"),
         UniqueConstraint("uid", name="uq_event_uid"),
@@ -205,6 +209,7 @@ class Rule(SQLModel, table=True):
     owner_user_id NULL = built-in/global rule.
     """
 
+    __tablename__ = "rule"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     owner_user_id: uuid.UUID | None = Field(default=None, foreign_key="user.id", index=True)
     name: str
@@ -222,6 +227,7 @@ class Rule(SQLModel, table=True):
 class RuleOverride(SQLModel, table=True):
     """Phase 2: per-user tweak of a rule (disable it, reweight it, rewrite its text)."""
 
+    __tablename__ = "rule_override"
     __table_args__ = (UniqueConstraint("owner_user_id", "rule_id"),)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -236,6 +242,7 @@ class RuleOverride(SQLModel, table=True):
 class Brief(SQLModel, table=True):
     """Phase 2: generated natural-language summary for a period."""
 
+    __tablename__ = "brief"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     owner_user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
     entity_id: uuid.UUID = Field(foreign_key="entity.id", index=True)
@@ -251,6 +258,7 @@ class Brief(SQLModel, table=True):
 class DayScore(SQLModel, table=True):
     """Phase 2: one aggregate number per entity per local day, with its components."""
 
+    __tablename__ = "day_score"
     __table_args__ = (UniqueConstraint("entity_id", "day", "system"),)
 
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
@@ -266,6 +274,7 @@ class DayScore(SQLModel, table=True):
 class FeedToken(SQLModel, table=True):
     """Secret that authorises an ICS feed URL (calendar apps can't send auth headers)."""
 
+    __tablename__ = "feed_token"
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     owner_user_id: uuid.UUID = Field(foreign_key="user.id", index=True)
     entity_id: uuid.UUID = Field(foreign_key="entity.id", index=True)

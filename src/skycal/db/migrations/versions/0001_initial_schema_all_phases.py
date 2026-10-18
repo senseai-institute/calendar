@@ -1,8 +1,8 @@
 """initial schema (all phases)
 
-Revision ID: 5b21ab7f4211
+Revision ID: 0001
 Revises:
-Create Date: 2026-10-18 13:03:31.724318
+Create Date: 2026-10-18 13:17:14.990099
 
 """
 
@@ -15,7 +15,7 @@ from sqlalchemy.dialects import postgresql
 
 import skycal.db.types
 
-revision: str = "5b21ab7f4211"
+revision: str = "0001"
 down_revision: str | None = None
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
@@ -121,7 +121,7 @@ def upgrade() -> None:
         batch_op.create_index(batch_op.f("ix_brief_owner_user_id"), ["owner_user_id"], unique=False)
 
     op.create_table(
-        "dayscore",
+        "day_score",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("owner_user_id", sa.Uuid(), nullable=False),
         sa.Column("entity_id", sa.Uuid(), nullable=False),
@@ -145,14 +145,14 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("entity_id", "day", "system"),
     )
-    with op.batch_alter_table("dayscore", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_dayscore_entity_id"), ["entity_id"], unique=False)
+    with op.batch_alter_table("day_score", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_day_score_entity_id"), ["entity_id"], unique=False)
         batch_op.create_index(
-            batch_op.f("ix_dayscore_owner_user_id"), ["owner_user_id"], unique=False
+            batch_op.f("ix_day_score_owner_user_id"), ["owner_user_id"], unique=False
         )
 
     op.create_table(
-        "feedtoken",
+        "feed_token",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("owner_user_id", sa.Uuid(), nullable=False),
         sa.Column("entity_id", sa.Uuid(), nullable=False),
@@ -169,12 +169,12 @@ def upgrade() -> None:
         ),
         sa.PrimaryKeyConstraint("id"),
     )
-    with op.batch_alter_table("feedtoken", schema=None) as batch_op:
-        batch_op.create_index(batch_op.f("ix_feedtoken_entity_id"), ["entity_id"], unique=False)
+    with op.batch_alter_table("feed_token", schema=None) as batch_op:
+        batch_op.create_index(batch_op.f("ix_feed_token_entity_id"), ["entity_id"], unique=False)
         batch_op.create_index(
-            batch_op.f("ix_feedtoken_owner_user_id"), ["owner_user_id"], unique=False
+            batch_op.f("ix_feed_token_owner_user_id"), ["owner_user_id"], unique=False
         )
-        batch_op.create_index(batch_op.f("ix_feedtoken_token"), ["token"], unique=True)
+        batch_op.create_index(batch_op.f("ix_feed_token_token"), ["token"], unique=True)
 
     op.create_table(
         "relationship",
@@ -205,7 +205,7 @@ def upgrade() -> None:
         )
 
     op.create_table(
-        "ruleoverride",
+        "rule_override",
         sa.Column("id", sa.Uuid(), nullable=False),
         sa.Column("owner_user_id", sa.Uuid(), nullable=False),
         sa.Column("rule_id", sa.Uuid(), nullable=False),
@@ -224,9 +224,9 @@ def upgrade() -> None:
         sa.PrimaryKeyConstraint("id"),
         sa.UniqueConstraint("owner_user_id", "rule_id"),
     )
-    with op.batch_alter_table("ruleoverride", schema=None) as batch_op:
+    with op.batch_alter_table("rule_override", schema=None) as batch_op:
         batch_op.create_index(
-            batch_op.f("ix_ruleoverride_owner_user_id"), ["owner_user_id"], unique=False
+            batch_op.f("ix_rule_override_owner_user_id"), ["owner_user_id"], unique=False
         )
 
     op.create_table(
@@ -343,25 +343,25 @@ def downgrade() -> None:
         batch_op.drop_index("ix_chart_entity_system_kind")
 
     op.drop_table("chart")
-    with op.batch_alter_table("ruleoverride", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_ruleoverride_owner_user_id"))
+    with op.batch_alter_table("rule_override", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_rule_override_owner_user_id"))
 
-    op.drop_table("ruleoverride")
+    op.drop_table("rule_override")
     with op.batch_alter_table("relationship", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_relationship_owner_user_id"))
 
     op.drop_table("relationship")
-    with op.batch_alter_table("feedtoken", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_feedtoken_token"))
-        batch_op.drop_index(batch_op.f("ix_feedtoken_owner_user_id"))
-        batch_op.drop_index(batch_op.f("ix_feedtoken_entity_id"))
+    with op.batch_alter_table("feed_token", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_feed_token_token"))
+        batch_op.drop_index(batch_op.f("ix_feed_token_owner_user_id"))
+        batch_op.drop_index(batch_op.f("ix_feed_token_entity_id"))
 
-    op.drop_table("feedtoken")
-    with op.batch_alter_table("dayscore", schema=None) as batch_op:
-        batch_op.drop_index(batch_op.f("ix_dayscore_owner_user_id"))
-        batch_op.drop_index(batch_op.f("ix_dayscore_entity_id"))
+    op.drop_table("feed_token")
+    with op.batch_alter_table("day_score", schema=None) as batch_op:
+        batch_op.drop_index(batch_op.f("ix_day_score_owner_user_id"))
+        batch_op.drop_index(batch_op.f("ix_day_score_entity_id"))
 
-    op.drop_table("dayscore")
+    op.drop_table("day_score")
     with op.batch_alter_table("brief", schema=None) as batch_op:
         batch_op.drop_index(batch_op.f("ix_brief_owner_user_id"))
         batch_op.drop_index(batch_op.f("ix_brief_entity_id"))
