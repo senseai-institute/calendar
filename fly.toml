@@ -1,0 +1,34 @@
+# fly launch --no-deploy --copy-config --name <your-app>   (then edit app below)
+app = "senseai-calendar"
+primary_region = "ewr"
+
+[build]
+
+[env]
+  APP_TIMEZONE = "America/New_York"
+  SCHEDULER_ENABLED = "true"
+  DATABASE_URL = "sqlite:////data/calendar.db"
+  # set with `fly secrets set`: API_KEY, PUBLIC_BASE_URL, DEFAULT_USER_EMAIL, ME_*
+
+[[mounts]]
+  source = "calendar_data"
+  destination = "/data"
+
+[http_service]
+  internal_port = 8080
+  force_https = true
+  # The nightly job runs in-process, so keep exactly one machine awake.
+  auto_stop_machines = "off"
+  auto_start_machines = true
+  min_machines_running = 1
+
+  [[http_service.checks]]
+    grace_period = "20s"
+    interval = "30s"
+    method = "GET"
+    path = "/health"
+    timeout = "5s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"
