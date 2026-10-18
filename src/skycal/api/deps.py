@@ -1,13 +1,23 @@
 """Shared FastAPI dependencies."""
 
+import secrets
 import uuid
 from typing import Annotated
 
-from fastapi import Depends, HTTPException
+from fastapi import Depends, Header, HTTPException
 from sqlmodel import Session
 
 from skycal.db.models import Entity, User
 from skycal.db.session import get_or_create_default_user, get_session
+from skycal.settings import get_settings
+
+
+def require_api_key(x_api_key: Annotated[str | None, Header()] = None) -> None:
+    """Optional shared-secret guard until real auth lands in Phase 4."""
+    expected = get_settings().api_key
+    if expected and not (x_api_key and secrets.compare_digest(x_api_key, expected)):
+        raise HTTPException(401, "missing or invalid X-API-Key")
+
 
 SessionDep = Annotated[Session, Depends(get_session)]
 

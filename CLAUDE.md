@@ -40,7 +40,24 @@ uv run ruff check . && uv run ruff format --check .
 uv run alembic upgrade head               # migrate DATABASE_URL
 uv run alembic revision --autogenerate -m "..."   # new migration after model change
 uv run uvicorn skycal.api.app:app --reload
+uv run python scripts/seed_me.py          # create/refresh the ME_* entity, print feed URL
+uv run python scripts/recompute_now.py    # run the nightly job now
 ```
+
+Tests need the ephemeris files (conftest exits with a hint if they're missing).
+`tests/test_transits.py` holds the hand-verified Saturn and sidereal-ingress cases.
+
+## Gotchas
+- **swisseph is thread-local and not thread-safe.** Its config (ephemeris path,
+  sidereal mode) lives in TLS, so `core/ephemeris._ensure_init()` runs once per
+  thread, and every call goes through `_LOCK`. Never call `swisseph` outside
+  `core/ephemeris.py`.
+- `position()` is `lru_cache`d on `(point, jd, sidereal)`. Scans use a grid
+  anchored to whole UTC days/hours, which keeps both caching and determinism working.
+- Settings are `lru_cache`d. Tests that change env vars must call
+  `get_settings.cache_clear()` and `get_engine.cache_clear()` (see `tests/conftest.py`).
+- `pkill -f uvicorn` from a shell whose command line contains "uvicorn" kills that
+  shell too.
 
 ## Conventions
 - Every datetime is tz-aware UTC in storage (`UTCDateTime` rejects naive ones).
@@ -55,7 +72,9 @@ uv run uvicorn skycal.api.app:app --reload
 
 ## Phase status
 - [x] Phase 1: ephemeris wrapper, natal charts (Western + Vedic), transit scanner,
-      event table, ICS feed, seed script, nightly recompute
+      event table, ICS feed, seed script, nightly recompute. All 9 acceptance criteria
+      are covered by tests or verified end to end. Remaining step: real birth data in `.env`
+      and a public URL so Google Calendar can fetch the feed.
 - [ ] Phase 2: rules + matcher, day scores, weekly brief (Claude API), MCP server
 - [ ] Phase 3: progressions, solar arc, returns, Vimshottari dashas, sky events, push
 - [ ] Phase 4: multi-entity, relationships, pets, auth
@@ -112,5 +131,16 @@ uv run uvicorn skycal.api.app:app --reload
 - **ICS rendering is on demand** from the `event` table. "Regenerate ICS" in the
   nightly job means refreshing those rows. The job also renders each feed once
   as a smoke check.
+- **Lilith** (optional, `prefs.lilith=true`) transits are tier 2.
+- **Vedic node redundancy:** since Rahu and Ketu are always opposite, "Ketu conj X"
+  and "Rahu 7th-aspect X" describe the same sky. Both are kept because Vedic
+  practice names them separately. Phase 2 rules should dedupe if needed.
+- **True-node wobble:** the true node oscillates ±1.5° over weeks, so node transits
+  can show several passes. This is real; the mean node would smooth it out.
+- **API key:** Phase 1 has no user auth, so an optional `API_KEY` env var guards
+  every JSON route (`X-API-Key` header). Always set it on a public deployment.
+- **Docker:** two-stage build. `pyswisseph` ships only an sdist, so it compiles in
+  `python:3.12` (has gcc), and the venv is copied to `python:3.12-slim`. Ephemeris
+  files are fetched at build time. One uvicorn worker, so the scheduler runs once.
 - **Placidus above the polar circles** is undefined. In that case we fall back to
   Porphyry and record `houses.fallback`.

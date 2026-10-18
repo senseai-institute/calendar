@@ -101,3 +101,14 @@ def test_events_window_filter(client):
     for x in evs:
         assert datetime.fromisoformat(x["end"]) >= now
         assert datetime.fromisoformat(x["start"]) <= now + timedelta(days=7)
+
+
+def test_api_key_guard(client, monkeypatch):
+    from skycal.settings import get_settings
+
+    monkeypatch.setenv("API_KEY", "s3cret")
+    get_settings.cache_clear()
+    assert client.get("/entities").status_code == 401
+    assert client.get("/entities", headers={"X-API-Key": "wrong"}).status_code == 401
+    assert client.get("/entities", headers={"X-API-Key": "s3cret"}).status_code == 200
+    assert client.get("/health").status_code == 200

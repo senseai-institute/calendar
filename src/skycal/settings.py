@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     app_timezone: str = "America/New_York"
     scheduler_enabled: bool = True
     default_user_email: str = "me@example.com"
+    # If set, every route except /health and the ICS feed requires header
+    # `X-API-Key: <value>`. Set it on any deployment reachable from the internet.
+    api_key: str | None = None
     # How far ahead the nightly job computes, and how far back it refreshes.
     recompute_days_ahead: int = 90
     recompute_days_behind: int = 7

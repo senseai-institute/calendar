@@ -25,6 +25,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("DATABASE_URL", f"sqlite:///{tmp_path / 'test.db'}")
     monkeypatch.setenv("SCHEDULER_ENABLED", "false")
     monkeypatch.setenv("PUBLIC_BASE_URL", "https://example.test")
+    monkeypatch.setenv("API_KEY", "")  # ignore any key in a local .env
     get_settings.cache_clear()
     get_engine.cache_clear()
     from skycal.api.app import app

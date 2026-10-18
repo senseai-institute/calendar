@@ -3,9 +3,10 @@
 import logging
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from sqlmodel import Session
 
+from skycal.api.deps import require_api_key
 from skycal.api.routes import charts, entities, events, ics, rules, sky
 from skycal.db.session import get_engine, get_or_create_default_user, migrate
 from skycal.settings import get_settings
@@ -35,8 +36,9 @@ app = FastAPI(
     version="0.1.0",
     lifespan=lifespan,
 )
-for r in (entities, charts, events, ics, sky, rules):
-    app.include_router(r.router)
+for r in (entities, charts, events, sky, rules):
+    app.include_router(r.router, dependencies=[Depends(require_api_key)])
+app.include_router(ics.router)  # authorised by the secret token in its URL
 
 
 @app.get("/health")
